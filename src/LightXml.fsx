@@ -49,7 +49,7 @@ module XElementExtension =
                 
     let rec private mapXmlElement (e:XmlElement) =
         match e.Content with
-        | Empty -> new XElement (mapName e.Name)
+        | Empty -> new XElement (mapName e.Name, mapAttribs e.Attributes)
         | Value s -> 
             let content =
                 mapAttribs e.Attributes
