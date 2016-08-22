@@ -11,13 +11,13 @@ module LightXml =
 
     and XmlElement =
         {   Name:XmlName
-            Attributes:XmlAttribute list
+            Attributes:XmlAttribute seq
             Content:XmlElementContent }
 
     and XmlElementContent =
         | Empty
         | Value of string
-        | Content of XmlElement list
+        | Content of XmlElement seq
             
     and XmlAttribute =
         {   Name:XmlName
@@ -44,8 +44,8 @@ module XElementExtension =
         | Name n -> XName.Get (n)
         | QualifiedName (ns,n) -> XName.Get (n, ns)
 
-    let private mapAttribs (attribs:XmlAttribute list) =
-        attribs |> List.map (fun a -> new XAttribute (mapName a.Name, a.Value))
+    let private mapAttribs (attribs:XmlAttribute seq) =
+        attribs |> Seq.map (fun a -> new XAttribute (mapName a.Name, a.Value))
                 
     let rec private mapXmlElement (e:XmlElement) =
         match e.Content with
@@ -53,15 +53,15 @@ module XElementExtension =
         | Value s -> 
             let content =
                 mapAttribs e.Attributes
-                |> List.map (fun a -> a :> obj)
-                |> List.append ([s :> obj])
+                |> Seq.map (fun a -> a :> obj)
+                |> Seq.append ([s :> obj])
 
             new XElement (mapName e.Name, content)
         | Content c -> 
             let content =
                 mapAttribs e.Attributes
-                |> List.map (fun a -> a :> obj)
-                |> List.append (c |> List.map (fun e -> mapXmlElement (e) :> obj))
+                |> Seq.map (fun a -> a :> obj)
+                |> Seq.append (c |> Seq.map (fun e -> mapXmlElement (e) :> obj))
 
             new XElement (mapName e.Name, content)
 

@@ -24,17 +24,43 @@ let createUniqueIdentifier name =
     uid <- uid + (int64)1
     {Index = uid; Name = name}
 
+type Architecture =
+    | X86
+    | X64
+    override archi.ToString() = 
+        match archi with 
+        | X86 -> "x86"
+        | X64 -> "x64"
+
+
 type File = {
     Id : UniqueIdentifier
     Source : System.IO.FileInfo
     } with
-    member this.toXmlElement() =
-        let xe = elem (name "File") 
+    member this.ToXmlElement() =
+        elem (name "File") 
                     |> attribs [name "Id" @= this.Id.ToString();
                                 name "Name" @= this.Source.Name;
                                 name "Source" @= this.Source.FullName]
-        xe |> XElement.fromXmlElement
-let createFile (fi:System.IO.FileInfo) = {Id = (createUniqueIdentifier fi.Name); Source=fi}
+let createFile (fi : System.IO.FileInfo) = {Id = (createUniqueIdentifier fi.Name); Source=fi}
+
+type Directory = {
+    Id : UniqueIdentifier
+    Source : System.IO.DirectoryInfo
+    Files : File seq
+    } with
+    member this.ToXmlElement() =
+        elem (name "Directory") 
+                    |> attribs [name "Id" @= this.Id.ToString();
+                                name "Name" @= this.Source.Name]
+                    |> content (this.Files |> Seq.map (fun f -> f.ToXmlElement()))
+
+let rec allFilesInDir (dirs : System.IO.DirectoryInfo seq) =
+    if Seq.isEmpty dirs then Seq.empty 
+    else seq { yield! dirs |> Seq.collect (fun d -> d.EnumerateFiles())
+               yield! dirs |> Seq.collect (fun d -> d.EnumerateDirectories()) |> allFilesInDir }
+let createDirectory (filter) (di : System.IO.DirectoryInfo) =
+    { Id = createUniqueIdentifier di.Name; Source = di; Files =  [| di |] |> allFilesInDir |> Seq.where filter |> Seq.map createFile }
 
 type Component = {
         Id : UniqueIdentifier
@@ -60,4 +86,8 @@ and Bundle = {
 
 let f = createFile (System.IO.FileInfo "test.txt")
 
-f.toXmlElement().ToString()
+let fxe = f.ToXmlElement() |> XElement.fromXmlElement
+fxe.ToString()
+
+let d = createDirectory (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
+(d.ToXmlElement() |> XElement.fromXmlElement).ToString()
