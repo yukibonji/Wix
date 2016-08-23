@@ -14,17 +14,7 @@ module Wix =
 
     let createVersion maj min bf = {Major = maj; Minor = min; BugFix = bf}
 
-    type UniqueIdentifier = {
-            Index : int64
-            Name : string
-        } with
-        override this.ToString() = sprintf "%i_%s" this.Index this.Name
-
-    let mutable internal uid = (int64)0
-    let createUniqueIdentifier name = 
-        uid <- uid + (int64)1
-        {Index = uid; Name = name}
-
+    
     type Architecture =
         | X86
         | X64
@@ -35,18 +25,19 @@ module Wix =
 
 
     type File = {
-        Id : UniqueIdentifier
+        Id : string
         Source : System.IO.FileInfo
         } with
         member this.ToXmlElement() =
             elem (name "File") 
-                        |> attribs [name "Id" @= this.Id.ToString();
+                        |> attribs [name "Id" @= this.Id;
                                     name "Name" @= this.Source.Name;
                                     name "Source" @= this.Source.FullName]
-    let createFile (fi : System.IO.FileInfo) = {Id = (createUniqueIdentifier fi.Name); Source=fi}
+    let IdFromFile (file : string) = System.IO.Path.GetFileNameWithoutExtension(file) + System.IO.Path.GetExtension(file).ToUpper().Replace(".", "")
+    let createFile (fi : System.IO.FileInfo) = {Id = fi.Name |> IdFromFile ; Source = fi}
 
     type Directory = {
-        Id : UniqueIdentifier
+        Id : string
         Source : System.IO.DirectoryInfo
         Files : File seq
         } with
@@ -61,10 +52,10 @@ module Wix =
             yield! dirs |> Seq.collect (fun d -> d.EnumerateFiles()) 
             yield! dirs |> Seq.collect (fun d -> d.EnumerateDirectories()) |> allFilesInDir }
     let createDirectory (filter) (dir : System.IO.DirectoryInfo) =
-        { Id = createUniqueIdentifier dir.Name; Source = dir; Files =  [| dir |] |> allFilesInDir |> Seq.where filter |> Seq.map createFile }
+        { Id = dir.Name |> IdFromFile; Source = dir; Files =  [| dir |] |> allFilesInDir |> Seq.where filter |> Seq.map createFile }
 
     type Component = {
-            Id : UniqueIdentifier
+            Id : string
             Guid : System.Guid
             Files : File seq
         }
