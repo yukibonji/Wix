@@ -1,12 +1,12 @@
 #if INTERACTIVE
 #load "src/LightXml.fsx"
+#load "src/Wix.fsx"
 #endif
 open LightXml
+open Wix
 
-// LightXml Usage
-let xml = elem (name "Person")
-            |> attribs [name "id" @= "js1"; name "alt" @= "super"]
-            |> content [elem (name "FullName") |> value "John Smith" ]
-        |> XElement.fromXmlElement
+let f = createFile (System.IO.FileInfo "test.txt")
+f.ToXmlElement() |> XElement.ToString
 
-xml.ToString()
+let d = createDirectory (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
+d.ToXmlElement() |> XElement.ToString

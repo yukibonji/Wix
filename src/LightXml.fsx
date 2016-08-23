@@ -67,5 +67,6 @@ module XElementExtension =
 
     module XElement =
         let fromXmlElement (xe:XmlElement) = mapXmlElement xe
+        let ToString (xe : XmlElement) = (xe |> fromXmlElement).ToString()
 
 
