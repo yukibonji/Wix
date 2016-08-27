@@ -60,18 +60,38 @@ module Wix =
             Files : File seq
         }
                 
-    type Wix = 
-        | Bundle of Bundle
-        | Product of Product
-
-    and Product = {
+    type Product = {
             Name : string
             Code : System.Guid
             Version : Version
             Publisher : string
-            UpgradeGuid : System.Guid
-        }
+            UpgradeCode : System.Guid
+            Manufacturer : string
+        } with
+        member this.ToXmlElement() = 
+            elem (name "Product")
+                |> attribs [name "Name" @= this.Name;
+                            name "Id" @= this.Code.ToString("D");
+                            name "UpgradeCode" @= this.UpgradeCode.ToString("D");
+                            name "Version" @= this.Version.ToString();
+                            name "Manufacturer" @= this.Manufacturer.ToString();]
+    let DefaultProduct = {Name = System.String.Empty; Code = System.Guid.NewGuid(); Version = createVersion 0 0 1; Publisher = System.String.Empty; UpgradeCode = System.Guid.NewGuid(); Manufacturer = System.String.Empty}
+    let createProduct (updateProduct: Product -> Product) = 
+        DefaultProduct |> updateProduct
 
-    and Bundle = {
+
+    type Bundle = {
             Setups : string seq
-        }
+        } with
+        member this.ToXmlElement() = 
+            elem (name "Bundle")
+
+    type Wix = 
+        | Bundle of Bundle
+        | Product of Product
+        with 
+        member this.ToXmlElement() =
+            let xe = match this with
+                     | Bundle b -> b.ToXmlElement()
+                     | Product p -> p.ToXmlElement()
+            elem (name "Wix") |> content [ xe ]

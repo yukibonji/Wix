@@ -1,5 +1,4 @@
 #if INTERACTIVE
-#load "src/LightXml.fsx"
 #load "src/Wix.fsx"
 #endif
 open LightXml
@@ -10,3 +9,8 @@ f.ToXmlElement() |> XElement.ToString
 
 let d = createDirectory (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
 d.ToXmlElement() |> XElement.ToString
+
+let w = Product (createProduct (fun p -> {p with 
+    Name = "My App"
+    Code = System.Guid.NewGuid()})) 
+w.ToXmlElement() |> XElement.ToString
