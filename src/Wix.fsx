@@ -111,6 +111,5 @@ module Wix =
             let xe = match this with
                      | Bundle b -> b.ToXmlElement()
                      | Product p -> p.ToXmlElement()
-            elem (name "Wix")
-            // elem (qname "http://schemas.microsoft.com/wix/2006/wi" "Wix") 
+            elem (qname "http://schemas.microsoft.com/wix/2006/wi" "Wix") 
                 |> content [ xe ]
