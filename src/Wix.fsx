@@ -8,11 +8,20 @@ module Wix =
     type Version = {
             Major : int
             Minor : int
-            BugFix : int
+            Build : int
+            Revision : int option
         } with 
-        override this.ToString() = sprintf "%i.%i.%i" this.Major this.Minor this.BugFix 
+        override this.ToString() =
+            match this.Revision with
+            | Some r -> sprintf "%i.%i.%i.%i" this.Major this.Minor this.Build this.Revision.Value
+            | None ->  sprintf "%i.%i.%i" this.Major this.Minor this.Build
+        member this.IncRevision() = 
+            {this with 
+                Revision = match this.Revision with 
+                           | Some r -> Some (r + 1)
+                           | None -> Some (1)}
 
-    let createVersion maj min bf = {Major = maj; Minor = min; BugFix = bf}
+    let createVersion maj min bf = {Major = maj; Minor = min; Build = bf; Revision = None}
 
     
     type Architecture =
@@ -62,20 +71,28 @@ module Wix =
                 
     type Product = {
             Name : string
-            Code : System.Guid
-            Version : Version
-            Publisher : string
-            UpgradeCode : System.Guid
             Manufacturer : string
+            Id : System.Guid
+            UpgradeCode : System.Guid
+            Version : Version
+            Description : string
         } with
         member this.ToXmlElement() = 
             elem (name "Product")
                 |> attribs [name "Name" @= this.Name;
-                            name "Id" @= this.Code.ToString("D");
+                            name "Id" @= this.Id.ToString("D");
                             name "UpgradeCode" @= this.UpgradeCode.ToString("D");
                             name "Version" @= this.Version.ToString();
                             name "Manufacturer" @= this.Manufacturer.ToString();]
-    let DefaultProduct = {Name = System.String.Empty; Code = System.Guid.NewGuid(); Version = createVersion 0 0 1; Publisher = System.String.Empty; UpgradeCode = System.Guid.NewGuid(); Manufacturer = System.String.Empty}
+                |> content [
+                    elem (name "Package")
+                        |> attribs [name "Id" @= "*";
+                                    name "Description" @= this.Description;
+                                    name "Manufacturer" @= this.Manufacturer.ToString();
+                                    name "InstallerVersion" @= "200";
+                                    name "Compressed" @= "yes"]
+                ]
+    let DefaultProduct = {Name = System.String.Empty; Id = System.Guid.NewGuid(); Version = createVersion 0 0 1; UpgradeCode = System.Guid.NewGuid(); Manufacturer = System.String.Empty; Description = System.String.Empty}
     let createProduct (updateProduct: Product -> Product) = 
         DefaultProduct |> updateProduct
 
@@ -94,4 +111,6 @@ module Wix =
             let xe = match this with
                      | Bundle b -> b.ToXmlElement()
                      | Product p -> p.ToXmlElement()
-            elem (name "Wix") |> content [ xe ]
+            elem (name "Wix")
+            // elem (qname "http://schemas.microsoft.com/wix/2006/wi" "Wix") 
+                |> content [ xe ]
