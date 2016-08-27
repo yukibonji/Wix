@@ -5,10 +5,9 @@ module LightXml =
         | Element of XmlElement
         | Attribute of XmlAttribute
 
-    and XmlName = {
-        Namespace : string option
-        Name : string
-    }
+    and XmlName =
+        | Name of string
+        | QualifiedName of string * string
 
     and XmlElement =
         {   Name:XmlName
@@ -24,8 +23,8 @@ module LightXml =
         {   Name:XmlName
             Value:string    }
             
-    let name s = {Namespace = None; Name = s}
-    let qname ns s = {Namespace =  Some ns; Name = s}
+    let name s = Name (s)
+    let qname ns s = QualifiedName (ns, s)
 
     let (@=) name value = { Name=name; Value=value }
     let elem name = { Name=name; Attributes=[]; Content=Empty }
@@ -41,15 +40,16 @@ open LightXml
 
 [<AutoOpen>]
 module XElementExtension =
-    let private mapName (n : XmlName) =
-        match n.Namespace with
-        | Some ns -> XName.Get (n.Name, ns)
-        | None -> XName.Get(n.Name)
-    
-    let private concatNames (rn : XmlName) (n : XmlName) = 
-        match n.Namespace with
-        | Some ns -> {Namespace = Some ns; Name = n.Name}
-        | None -> {Namespace = rn.Namespace; Name = n.Name}
+    let private mapName = function
+        | Name n -> XName.Get (n)
+        | QualifiedName (ns,n) -> XName.Get (n, ns)
+
+    let private concatNames (parentName : XmlName) (nodeName : XmlName) = 
+        match nodeName with
+        | QualifiedName (ns, n) -> qname ns n
+        | Name n -> match parentName with
+                    | QualifiedName (pns, _) -> qname pns n
+                    | Name n -> name n
 
     let private mapAttribs (attribs:XmlAttribute seq) =
         attribs |> Seq.map (fun a -> new XAttribute (mapName a.Name, a.Value))
