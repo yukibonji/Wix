@@ -10,15 +10,16 @@ f.ToXmlElement() |> XElement.ToString
 let d = createDirectory (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
 d.ToXmlElement() |> XElement.ToString
 
-let w = Product (createProduct (fun p ->
+let w = Product (createProduct (fun prod ->
   {
-    p with
+    prod with
       Name = "MyApp"
       Manufacturer = "Developer"
-      Id = System.Guid.NewGuid()
-      Package = createPackage (fun pack ->
-        {pack with 
-          Compressed = No
+      Package = createPackage (fun pkg ->
+        {
+          pkg with 
+            Compressed = No
+            Description = "Some wonderfull functionalities"
         } 
       )
   }))

@@ -29,14 +29,22 @@ module Wix =
           Minor = min
           Build = bf
           Revision = None }
+    
+    type AutogenGuid = 
+        | Unic of System.Guid
+        | Auto
+        with override this.ToString() = 
+                match this with
+                | Unic guid -> guid.ToString("D")
+                | Auto -> "*"
 
     type Architecture =
         | X86
         | X64
-        override archi.ToString() =
-            match archi with
-            | X86 -> "x86"
-            | X64 -> "x64"
+        with override archi.ToString() =
+                match archi with
+                | X86 -> "x86"
+                | X64 -> "x64"
 
     type File =
         { Id : string
@@ -97,6 +105,7 @@ module Wix =
             | No -> sprintf "no"
 
     type Package = {
+        Id : AutogenGuid
         Description : string
         Manufacturer : string
         InstallerVersion : int
@@ -104,23 +113,25 @@ module Wix =
         } with 
             member this.ToXmlElement() =
                 elem (name "Package") 
-                |> attribs [ name "Id" @= "*"
+                |> attribs [ name "Id" @= this.Id.ToString()
                              name "Description" @= this.Description
                              name "Manufacturer" @= this.Manufacturer.ToString()
                              name "InstallerVersion" @= this.InstallerVersion.ToString()
                              name "Compressed" @= this.Compressed.ToString() ]
-    let DefaultPackage = 
-        {   Description = System.String.Empty
-            Manufacturer = System.String.Empty
-            InstallerVersion = 200
-            Compressed = Yes 
-        }
+    
     let createPackage (updatePackage : Package -> Package) =
-        DefaultPackage
+        let defaultPackage = 
+            {   Id = Auto
+                Description = System.String.Empty
+                Manufacturer = System.String.Empty
+                InstallerVersion = 200
+                Compressed = Yes 
+            }
+        defaultPackage
         |> updatePackage
 
     type Product =
-        { Id : System.Guid
+        { Id : AutogenGuid
           Language : string
           Manufacturer : string
           Name : string
@@ -130,27 +141,26 @@ module Wix =
         member this.ToXmlElement() =
             elem (name "Product")
             |> attribs [ name "Name" @= this.Name
-                         name "Id" @= this.Id.ToString("D")
+                         name "Id" @= this.Id.ToString()
                          name "UpgradeCode" @= this.UpgradeCode.ToString("D")
                          name "Version" @= this.Version.ToString()
                          name "Manufacturer" @= this.Manufacturer.ToString() ]
             |> content [ this.Package.ToXmlElement() ]
-    let consolidateProduct (product : Product) = {
-            product with 
-                Package = {product.Package with Manufacturer = product.Manufacturer}
-            }
-    let DefaultProduct =
-        { Id = System.Guid.NewGuid()
-          Language = System.String.Empty
-          Manufacturer = System.String.Empty
-          Name = System.String.Empty
-          UpgradeCode = System.Guid.NewGuid()
-          Version = createVersion 0 0 1
-          Package = DefaultPackage }
-          |> consolidateProduct
     
-    let createProduct (updateProduct : Product -> Product) = 
-        DefaultProduct 
+    let createProduct (updateProduct : Product -> Product) =
+        let consolidateProduct (product : Product) = {
+                product with 
+                    Package = {product.Package with Manufacturer = product.Manufacturer}
+                }
+        let defaultProduct = { 
+            Id = Auto
+            Language = System.String.Empty
+            Manufacturer = System.String.Empty
+            Name = System.String.Empty
+            UpgradeCode = System.Guid.NewGuid()
+            Version = createVersion 0 0 1
+            Package = (createPackage Operators.id) } 
+        defaultProduct 
         |> updateProduct
         |> consolidateProduct
 
