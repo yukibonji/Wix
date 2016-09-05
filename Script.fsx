@@ -4,18 +4,19 @@
 open LightXml
 open Wix
 
-let f = createFile (System.IO.FileInfo "test.txt")
+
+let f = WixFile.create (System.IO.FileInfo "test.txt")
 f.ToXmlElement() |> XElement.ToString
 
-let d = createDirectory (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
+let d = WixDirectory.create (fun f -> f.Extension.Equals(".png")) (System.IO.DirectoryInfo ".")
 d.ToXmlElement() |> XElement.ToString
 
-let w = Product (createProduct (fun prod ->
+let w = WixProduct (WixProduct.create (fun prod ->
   {
     prod with
       Name = "MyApp"
       Manufacturer = "Developer"
-      Package = createPackage (fun pkg ->
+      Package = WixPackage.create (fun pkg ->
         {
           pkg with 
             Compressed = No

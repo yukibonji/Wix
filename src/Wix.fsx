@@ -1,17 +1,21 @@
-
 #if INTERACTIVE
 #load "LightXml.fsx"
 #endif
 
 open LightXml
 
+open System
+open System.IO
+
 [<AutoOpen>]
 module Wix =
     type Version =
-        { Major : int
-          Minor : int
-          Build : int
-          Revision : int option }
+        { 
+            Major : int
+            Minor : int
+            Build : int
+            Revision : int option 
+        }
 
         override this.ToString() =
             match this.Revision with
@@ -24,14 +28,8 @@ module Wix =
                             | Some r -> Some(r + 1)
                             | None -> Some(1) }
 
-    let createVersion maj min bf =
-        { Major = maj
-          Minor = min
-          Build = bf
-          Revision = None }
-    
     type AutogenGuid = 
-        | Unic of System.Guid
+        | Unic of Guid
         | Auto
         with override this.ToString() = 
                 match this with
@@ -46,56 +44,7 @@ module Wix =
                 | X86 -> "x86"
                 | X64 -> "x64"
 
-    type File =
-        { Id : string
-          Source : System.IO.FileInfo }
-        member this.ToXmlElement() =
-            elem (name "File") |> attribs [ name "Id" @= this.Id
-                                            name "Name" @= this.Source.Name
-                                            name "Source" @= this.Source.FullName ]
-
-    let IdFromFile(file : string) =
-        System.IO.Path.GetFileNameWithoutExtension(file) + System.IO.Path.GetExtension(file).ToUpper().Replace(".", "")
-
-    let createFile (fi : System.IO.FileInfo) =
-        { Id = fi.Name |> IdFromFile
-          Source = fi }
-
-    type Directory =
-        { Id : string
-          Source : System.IO.DirectoryInfo
-          Files : File seq }
-        member this.ToXmlElement() =
-            elem (name "Directory")
-            |> attribs [ name "Id" @= this.Id.ToString()
-                         name "Name" @= this.Source.FullName ]
-            |> content (this.Files |> Seq.map (fun f -> f.ToXmlElement()))
-
-    let rec allFilesInDir (dirs : System.IO.DirectoryInfo seq) =
-        if Seq.isEmpty dirs then Seq.empty
-        else
-            seq {
-                yield! dirs |> Seq.collect (fun d -> d.EnumerateFiles())
-                yield! dirs
-                       |> Seq.collect (fun d -> d.EnumerateDirectories())
-                       |> allFilesInDir
-            }
-
-    let createDirectory (filter) (dir : System.IO.DirectoryInfo) =
-        { Id = dir.Name |> IdFromFile
-          Source = dir
-          Files =
-              [| dir |]
-              |> allFilesInDir
-              |> Seq.where filter
-              |> Seq.map createFile }
-
-    type Component =
-        { Id : string
-          Guid : System.Guid
-          Files : File seq }
-
-    type YesNo = 
+    type YesOrNo = 
     | Yes
     | No
     with 
@@ -104,12 +53,41 @@ module Wix =
             | Yes -> sprintf "yes"
             | No -> sprintf "no"
 
-    type Package = {
+    type WixFile =
+        { 
+            Id : string
+            Source : IO.FileInfo 
+        }
+        member this.ToXmlElement() =
+            elem (name "File") |> attribs [ name "Id" @= this.Id
+                                            name "Name" @= this.Source.Name
+                                            name "Source" @= this.Source.FullName ]
+
+    type WixDirectory =
+        { 
+            Id : string
+            Source : IO.DirectoryInfo
+            Files : WixFile seq 
+        }
+        member this.ToXmlElement() =
+            elem (name "Directory")
+            |> attribs [ name "Id" @= this.Id.ToString()
+                         name "Name" @= this.Source.FullName ]
+            |> content (this.Files |> Seq.map (fun f -> f.ToXmlElement()))
+
+    type WixComponent =
+        { 
+            Id : string
+            Guid : Guid
+            Files : WixFile seq
+        }
+
+    type WixPackage = {
         Id : AutogenGuid
         Description : string
         Manufacturer : string
         InstallerVersion : int
-        Compressed : YesNo
+        Compressed : YesOrNo
         } with 
             member this.ToXmlElement() =
                 elem (name "Package") 
@@ -118,26 +96,17 @@ module Wix =
                              name "Manufacturer" @= this.Manufacturer.ToString()
                              name "InstallerVersion" @= this.InstallerVersion.ToString()
                              name "Compressed" @= this.Compressed.ToString() ]
-    
-    let createPackage (updatePackage : Package -> Package) =
-        let defaultPackage = 
-            {   Id = Auto
-                Description = System.String.Empty
-                Manufacturer = System.String.Empty
-                InstallerVersion = 200
-                Compressed = Yes 
-            }
-        defaultPackage
-        |> updatePackage
 
-    type Product =
-        { Id : AutogenGuid
-          Language : string
-          Manufacturer : string
-          Name : string
-          UpgradeCode : System.Guid
-          Version : Version
-          Package : Package }
+    type WixProduct =
+        { 
+            Id : AutogenGuid
+            Language : string
+            Manufacturer : string
+            Name : string
+            UpgradeCode : Guid
+            Version : Version
+            Package : WixPackage 
+        }
         member this.ToXmlElement() =
             elem (name "Product")
             |> attribs [ name "Name" @= this.Name
@@ -147,34 +116,94 @@ module Wix =
                          name "Manufacturer" @= this.Manufacturer.ToString() ]
             |> content [ this.Package.ToXmlElement() ]
     
-    let createProduct (updateProduct : Product -> Product) =
-        let consolidateProduct (product : Product) = {
-                product with 
-                    Package = {product.Package with Manufacturer = product.Manufacturer}
-                }
-        let defaultProduct = { 
-            Id = Auto
-            Language = System.String.Empty
-            Manufacturer = System.String.Empty
-            Name = System.String.Empty
-            UpgradeCode = System.Guid.NewGuid()
-            Version = createVersion 0 0 1
-            Package = (createPackage Operators.id) } 
-        defaultProduct 
-        |> updateProduct
-        |> consolidateProduct
 
-    type Bundle =
+    type WixBundle =
         { Setups : string seq }
         member this.ToXmlElement() = elem (name "Bundle")
 
     type Wix =
-        | Bundle of Bundle
-        | Product of Product
+        | WixBundle of WixBundle
+        | WixProduct of WixProduct
         member this.ToXmlElement() =
             let xe =
                 match this with
-                | Bundle b -> b.ToXmlElement()
-                | Product p -> p.ToXmlElement()
+                | WixBundle b -> b.ToXmlElement()
+                | WixProduct p -> p.ToXmlElement()
             elem (qname "http://schemas.microsoft.com/wix/2006/wi" "Wix")
             |> content [ xe ]
+
+open Wix
+
+module Version = 
+    let create maj min bf : Version =
+        { 
+            Major = maj
+            Minor = min
+            Build = bf
+            Revision = None 
+        }
+
+module WixFile = 
+    let IdFromFile(file : string) =
+        Path.GetFileNameWithoutExtension(file) + Path.GetExtension(file).ToUpper().Replace(".", "")
+
+    let create (fi : FileInfo) : WixFile =
+        {
+            Id = fi.Name |> IdFromFile
+            Source = fi
+        }
+
+
+module WixDirectory =
+    let rec walk (dirs : DirectoryInfo seq) =
+        if Seq.isEmpty dirs then Seq.empty 
+        else
+            seq {
+                yield! dirs 
+                    |> Seq.collect (fun d -> d.EnumerateFiles())
+                yield! dirs
+                    |> Seq.collect (fun d -> d.EnumerateDirectories())
+                    |> walk
+            }
+
+    let create (filter) (dir : DirectoryInfo) : WixDirectory =
+        {
+            Id = dir.Name |> WixFile.IdFromFile
+            Source = dir
+            Files =
+                [| dir |]
+                |> walk
+                |> Seq.where filter
+                |> Seq.map WixFile.create
+        }
+
+module WixPackage = 
+    let create (updatePackage : WixPackage -> WixPackage) : WixPackage =
+        let defaultPackage : WixPackage = 
+            {   
+                Id = Auto
+                Description = String.Empty
+                Manufacturer = String.Empty
+                InstallerVersion = 200
+                Compressed = Yes 
+            }
+        defaultPackage
+        |> updatePackage
+
+module WixProduct = 
+    let create (updateProduct : WixProduct -> WixProduct) : WixProduct =
+        let consolidateProduct (product : WixProduct) = {
+                product with 
+                    Package = {product.Package with Manufacturer = product.Manufacturer}
+                }
+        let defaultProduct : WixProduct = { 
+            Id = Auto
+            Language = String.Empty
+            Manufacturer = String.Empty
+            Name = String.Empty
+            UpgradeCode = Guid.NewGuid()
+            Version = Version.create 0 0 1
+            Package = (WixPackage.create Operators.id) } 
+        defaultProduct 
+        |> updateProduct
+        |> consolidateProduct
