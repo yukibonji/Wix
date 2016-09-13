@@ -45,13 +45,22 @@ module Wix =
                 | X64 -> "x64"
 
     type YesOrNo = 
-    | Yes
-    | No
-    with 
-        override this.ToString() = 
-            match this with
-            | Yes -> sprintf "yes"
-            | No -> sprintf "no"
+        | Yes
+        | No
+        with 
+            override this.ToString() = 
+                match this with
+                | Yes -> sprintf "yes"
+                | No -> sprintf "no"
+
+    type LocalizableInteger =
+        | Integer of int
+        | Localization of string
+        with 
+            override this.ToString() =
+                match this with
+                | Integer v -> v.ToString()
+                | Localization s -> s
 
     type WixFile =
         { 
@@ -100,7 +109,7 @@ module Wix =
     type WixProduct =
         { 
             Id : AutogenGuid
-            Language : string
+            Language : LocalizableInteger
             Manufacturer : string
             Name : string
             UpgradeCode : Guid
@@ -111,6 +120,7 @@ module Wix =
             elem (name "Product")
             |> attribs [ name "Name" @= this.Name
                          name "Id" @= this.Id.ToString()
+                         name "Language" @= this.Language.ToString()
                          name "UpgradeCode" @= this.UpgradeCode.ToString("D")
                          name "Version" @= this.Version.ToString()
                          name "Manufacturer" @= this.Manufacturer.ToString() ]
@@ -198,7 +208,7 @@ module WixProduct =
                 }
         let defaultProduct : WixProduct = { 
             Id = Auto
-            Language = String.Empty
+            Language = Integer 1033
             Manufacturer = String.Empty
             Name = String.Empty
             UpgradeCode = Guid.NewGuid()
