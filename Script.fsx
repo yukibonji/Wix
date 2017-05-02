@@ -4,6 +4,12 @@
 open LightXml
 open Wix
 
+#if INTERACTIVE
+#r "System.Xml.Linq.dll"
+#r "packages/FSharp.Data.Xsd/lib/net45/FSharp.Data.Xsd.dll"
+#endif
+
+open FSharp.Data
 
 let f = WixFile.create (System.IO.FileInfo "test.txt")
 f.ToXmlElement() |> XElement.ToString
@@ -24,4 +30,8 @@ let w = WixProduct (WixProduct.create (fun prod ->
         } 
       )
   }))
-w.ToXmlElement() |> XElement.ToString
+let wx = w.ToXmlElement() |> XElement.ToString
+
+type WixType = XmlProvider<Schema = "src/data/wix.xsd">
+let project = WixType.Parse wx
+project.Wix.Value.Product.Value.Package.Description
